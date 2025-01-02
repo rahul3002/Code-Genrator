@@ -3,20 +3,20 @@ import axios from 'axios';
 
 export async function POST(request) {
   try {
-    const { prompt } = await request.json();
+    const { prompt, language } = await request.json();
     
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
     const response = await axios.post(
-      'https://api.together.ai/v1/chat/completions',  // Updated to chat endpoint
+      'https://api.together.ai/v1/chat/completions',
       {
         model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
         messages: [
           {
             role: "system",
-            content: "You are a helpful programming assistant. Provide clear, concise code examples."
+            content: `You are a helpful programming assistant. Provide clear, concise code examples in ${language}. Only respond with code, no explanations.`
           },
           {
             role: "user",
