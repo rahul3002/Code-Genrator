@@ -13,6 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import { ShareButton } from "@/components/share-button";
 import { ExportButton } from "@/components/export-button";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { SettingsPanel } from "@/components/settings-panel";
+import { CodeSearch } from "@/components/code-search";
+import { TemplateSelector } from "@/components/template-selector";
+import { CodeStats } from "@/components/code-stats";
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -21,11 +25,13 @@ export default function Home() {
   const [error, setError] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [history, setHistory] = useState([]);
+  const [filteredHistory, setFilteredHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
+    
     setLoading(true);
     setError('');
     
@@ -33,27 +39,46 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, language: selectedLanguage }),
+        body: JSON.stringify({ 
+          prompt, 
+          language: selectedLanguage 
+        }),
       });
 
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate code');
+
+      // Check if the response contains an error
+      if (data.error) {
+        throw new Error(data.error);
       }
 
-      setCode(data.code);
+      // Extract the generated code from the response
+      const generatedCode = data.code;
+      
+      if (!generatedCode) {
+        throw new Error('No code was generated');
+      }
+
+      setCode(generatedCode);
       setHistory(prev => [...prev, {
         prompt,
-        code: data.code,
+        code: generatedCode,
         language: selectedLanguage,
         timestamp: new Date().toISOString()
       }]);
+
+      toast({
+        title: "Success",
+        description: "Code generated successfully"
+      });
+
     } catch (error) {
+      console.error('Generation Error:', error);
       setError(error.message);
       toast({
         title: "Error",
-        description: error.message
+        description: error.message,
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -68,8 +93,13 @@ export default function Home() {
             <h1 className="text-2xl font-bold">AI Code Generator</h1>
             <p className="text-muted-foreground">Generate code using AI</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <SettingsPanel />
+            <ThemeToggle />
+          </div>
         </div>
+        <CodeSearch history={history} onSearch={setFilteredHistory} />
+        <TemplateSelector language={selectedLanguage} onSelect={setPrompt} />
 
         <div className="flex flex-col gap-4 h-full">
           <Select
@@ -129,6 +159,17 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {showHistory && (
+        <CodeHistory 
+          history={filteredHistory.length > 0 ? filteredHistory : history} 
+          onSelect={(item) => {
+            setPrompt(item.prompt)
+            setSelectedLanguage(item.language)
+            setCode(item.code)
+          }} 
+        />
+      )}
     </div>
   );
 }
